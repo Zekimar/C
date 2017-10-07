@@ -179,14 +179,11 @@ void* my_malloc(unsigned int size)
 					}
 					b = c;
 					b->in_use = 1;
-					if (bins[OVERFLOW_BIN] == c){
-						bins[OVERFLOW_BIN] = bins[OVERFLOW_BIN]->next_free;
-					}
 				/* } */
-			}else{
-				c = c->next_free;
 			}
+			c = c->next_free;
 		}
+		bins[OVERFLOW_BIN] = bins[OVERFLOW_BIN]->next_free;
 	}
 	//printf("b\n");
 	if(b == NULL){
@@ -218,42 +215,59 @@ void my_free(void* ptr)
 	BlockHeader* d = b->next_phys;
 	//printf("\nprev is %p\n", b->prev_phys);
 	//printf("free %d %d\n", b->size, b->in_use);
-	while(c != NULL && c->in_use == 0){
+	if (c != NULL && c->in_use == 0){
 		c->size += (b->size + BLOCK_HEADER_SIZE);
 		c->next_phys = b->next_phys;
 		if (d != NULL){
 			d->prev_phys = c;
 		}
+		if (c->prev_free != NULL){
+			c->prev_free->next_free = c->next_free;
+		}
+		if (c->next_free != NULL){
+			c->next_free->prev_free = c->prev_free;
+		}
 		//printf("p1\n");
 		b = c;
-		c = b->prev_phys;
 		//printf("merged with prev size is %d\n", b->size, b, c);
 	}
 	//printf("a\n");
-	while (d != NULL && d->in_use == 0){
+	if (d != NULL && d->in_use == 0){
 		b->size += (d->size + BLOCK_HEADER_SIZE);
 		b->next_phys = d->next_phys;
 		if (d->next_phys != NULL){
 			d->next_phys->prev_phys = b;
 		}
-		d = b->next_phys;
+		if (d->prev_free != NULL){
+			d->prev_free->next_free = d->next_free;
+		}
+		if (d->next_free != NULL){
+			d->next_free->prev_free = d->prev_free;
+		}
 		//printf("merged with next size is %d\n", b->size);
 	}
 	//printf("b\n");
-	if (b->in_use == 1){
+	/* if (b->in_use == 1){
 		b->prev_free = NULL;
 		b->next_free = NULL;
-	}
+	} */
 	b->in_use = 0;
 	//printf("c\n");
 	if (b->next_phys != NULL){
+		if (bins[OVERFLOW_BIN] != NULL){
+			bins[OVERFLOW_BIN]->prev_free = b;
+			b->next_free = bins[OVERFLOW_BIN];
+		}
+		bins[OVERFLOW_BIN] = b;
+	}
+	/* if (b->next_phys != NULL){
 			if (bins[OVERFLOW_BIN] != NULL && bins[OVERFLOW_BIN] != b){
 				bins[OVERFLOW_BIN]->prev_free = b;
 				b->next_free = bins[OVERFLOW_BIN];
 			}
 			bins[OVERFLOW_BIN] = b;
 		//printf("a1 added %p\n", b);
-	}
+	} */
 	//printf("d\n");
 	if (b->next_phys == NULL){
 		heap_tail = b->prev_phys;
